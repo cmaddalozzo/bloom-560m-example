@@ -1,0 +1,4 @@
+kserve
+torch
+torchtext
+transformers
