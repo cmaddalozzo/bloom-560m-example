@@ -21,3 +21,20 @@ spec:
           cpu: "1"
           memory: 4Gi
           nvidia.com/gpu: "2"
+  transformer:
+    containers:
+      - image: artprod.dev.bloomberg.com/dspuser/s-dsplatform/bloom-560m-example-transformer:latest
+        name: kserve-container
+        command: 
+          - python
+          - transformer.py
+        args: 
+          - --model_name
+          - fastertransformer
+          - --protocol
+          - grpc-v2
+          - --tokenizer_path
+          - /mnt/models/
+        env:
+          - name: STORAGE_URI
+            value: s3://platform/kserve/bloom-a100/fastertransformer/1/tokenizer

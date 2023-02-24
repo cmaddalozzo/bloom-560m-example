@@ -1,7 +1,8 @@
 import argparse
 import logging
 import json
-from typing import Dict, List, Optional
+from uuid import uuid4
+from typing import Dict, List, Optional, Union
 
 import kserve
 from kserve.protocol.infer_type import (
@@ -26,8 +27,8 @@ logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 
 
-def get_output(res: InferResponse, name: str) -> Optional[InferOutput]:
-    for o in res.outputs:
+def get_output(outputs: List[InferOutput], name: str) -> Optional[InferOutput]:
+    for o in outputs:
         if o.name == name:
             return o
 
@@ -83,14 +84,21 @@ class Transformer(kserve.Model):
                 data=output_lens,
             ),
         ]
-        return InferRequest(self.name, infer_inputs=infer_inputs)
+        return InferRequest(
+            self.name, infer_inputs=infer_inputs, request_id=str(uuid4())
+        )
 
-    def postprocess(self, response: ModelInferResponse, headers: Dict) -> Dict:
-        res = InferResponse.from_grpc(response)
-        output_ids = get_output(res, "output_ids").as_numpy()
+    def postprocess(
+        self, response: Union[ModelInferResponse, Dict], headers: Dict
+    ) -> Dict:
+        if isinstance(response, ModelInferResponse):
+            outputs = InferResponse.from_grpc(response).outputs
+        else:
+            outputs = [InferOutput(**o) for o in response["outputs"]]
+        output_ids = get_output(outputs, "output_ids").as_numpy()
         results = []
-        for res in output_ids:
-            outputs = [self.tokenizer.decode(beam) for beam in res]
+        for o in output_ids:
+            outputs = [self.tokenizer.decode(beam) for beam in o]
             results.append(outputs)
         return json.dumps(results)
 
